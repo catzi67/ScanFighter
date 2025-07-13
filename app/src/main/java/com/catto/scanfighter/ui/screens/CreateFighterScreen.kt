@@ -10,10 +10,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import com.catto.scanfighter.ui.components.GameButton
+import com.catto.scanfighter.ui.components.GameDialog
+import com.catto.scanfighter.ui.components.GameTextField
 import com.catto.scanfighter.ui.viewmodels.FighterViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -51,7 +51,6 @@ fun CreateFighterScreen(navController: NavController, viewModel: FighterViewMode
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
     ) {
         if (cameraPermissionState.status.isGranted) {
             CameraPreview { barcode ->
@@ -59,38 +58,38 @@ fun CreateFighterScreen(navController: NavController, viewModel: FighterViewMode
                 showNameDialog = true
             }
         } else {
-            Text("Camera permission is required to scan for new fighters.")
+            Text("Camera permission is required to scan for new fighters.", modifier = Modifier.padding(16.dp))
         }
     }
 
     if (showNameDialog && scannedBarcode != null) {
-        AlertDialog(
+        GameDialog(
+            title = "Name Your Fighter",
             onDismissRequest = {
                 showNameDialog = false
                 scannedBarcode = null
                 fighterName = ""
             },
-            title = { Text("Name Your Fighter") },
-            text = {
-                TextField(
+            content = {
+                GameTextField(
                     value = fighterName,
                     onValueChange = { fighterName = it },
-                    label = { Text("Fighter Name") }
+                    label = "Fighter Name"
                 )
             },
             confirmButton = {
-                Button(
+                GameButton(
+                    text = "Create",
                     onClick = {
-                        viewModel.createFighter(fighterName, scannedBarcode!!)
-                        showNameDialog = false
-                        scannedBarcode = null
-                        fighterName = ""
-                        navController.popBackStack()
-                    },
-                    enabled = fighterName.isNotBlank()
-                ) {
-                    Text("Create")
-                }
+                        if (fighterName.isNotBlank()) {
+                            viewModel.createFighter(fighterName, scannedBarcode!!)
+                            showNameDialog = false
+                            scannedBarcode = null
+                            fighterName = ""
+                            navController.popBackStack()
+                        }
+                    }
+                )
             }
         )
     }
