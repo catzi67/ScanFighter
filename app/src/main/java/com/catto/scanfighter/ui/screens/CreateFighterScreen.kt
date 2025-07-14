@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -38,7 +39,53 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 
-@OptIn(ExperimentalPermissionsApi::class, ExperimentalGetImage::class)
+/**
+ * A dedicated ImageAnalysis.Analyzer class to handle barcode scanning.
+ * This isolates the use of the experimental `imageProxy.image` API.
+ */
+private class BarcodeAnalyzer(private val onBarcodeScanned: (String) -> Unit) : ImageAnalysis.Analyzer {
+
+    private var isScanning = true
+
+    @ExperimentalGetImage
+    override fun analyze(imageProxy: ImageProxy) {
+        // If a barcode has already been successfully scanned, do nothing.
+        if (!isScanning) {
+            imageProxy.close()
+            return
+        }
+
+        val mediaImage = imageProxy.image
+        if (mediaImage != null) {
+            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+            val options = BarcodeScannerOptions.Builder().build()
+            val scanner = BarcodeScanning.getClient(options)
+
+            scanner.process(image)
+                .addOnSuccessListener { barcodes ->
+                    barcodes.firstOrNull()?.rawValue?.let { barcodeValue ->
+                        // Ensure we only process the first valid barcode found.
+                        if (isScanning) {
+                            isScanning = false
+                            onBarcodeScanned(barcodeValue)
+                        }
+                    }
+                }
+                .addOnFailureListener { e ->
+                    Log.e("BarcodeAnalyzer", "Barcode scanning failed", e)
+                }
+                .addOnCompleteListener {
+                    // It's crucial to close the imageProxy to allow the next frame to be processed.
+                    imageProxy.close()
+                }
+        } else {
+            imageProxy.close() // Also close if the image is null
+        }
+    }
+}
+
+
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CreateFighterScreen(navController: NavController, viewModel: FighterViewModel) {
     val cameraPermissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)
@@ -56,6 +103,7 @@ fun CreateFighterScreen(navController: NavController, viewModel: FighterViewMode
             .systemBarsPadding()
     ) {
         if (cameraPermissionState.status.isGranted) {
+            // We now pass a lambda that will be called by our analyzer.
             CameraPreview { barcode ->
                 scannedBarcode = barcode
                 showNameDialog = true
@@ -103,8 +151,8 @@ fun CameraPreview(onBarcodeScanned: (String) -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val context = LocalContext.current
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
-    var hasScanned by remember { mutableStateOf(false) }
-
+    // We remember the analyzer instance to avoid creating a new one on every recomposition.
+    val barcodeAnalyzer = remember { BarcodeAnalyzer(onBarcodeScanned) }
 
     AndroidView(
         factory = { ctx ->
@@ -124,35 +172,9 @@ fun CameraPreview(onBarcodeScanned: (String) -> Unit) {
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
                     .also {
-                        it.setAnalyzer(Executors.newSingleThreadExecutor()) { imageProxy ->
-                            val options = BarcodeScannerOptions.Builder().build()
-                            val scanner = BarcodeScanning.getClient(options)
-                            val mediaImage = imageProxy.image
-                            if (mediaImage != null && !hasScanned) {
-                                val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-                                scanner.process(image)
-                                    .addOnSuccessListener { barcodes ->
-                                        for (barcode in barcodes) {
-                                            val rawValue = barcode.rawValue
-                                            if (rawValue != null) {
-                                                hasScanned = true
-                                                onBarcodeScanned(rawValue)
-                                                break
-                                            }
-                                        }
-                                    }
-                                    .addOnFailureListener { e ->
-                                        Log.e("CameraPreview", "Barcode scanning failed", e)
-                                    }
-                                    .addOnCompleteListener {
-                                        imageProxy.close()
-                                    }
-                            } else {
-                                imageProxy.close()
-                            }
-                        }
+                        // Set the analyzer instance.
+                        it.setAnalyzer(Executors.newSingleThreadExecutor(), barcodeAnalyzer)
                     }
-
 
                 try {
                     cameraProvider.unbindAll()
