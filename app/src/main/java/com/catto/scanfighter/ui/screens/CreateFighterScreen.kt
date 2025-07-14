@@ -3,6 +3,7 @@ package com.catto.scanfighter.ui.screens
 import android.Manifest
 import android.util.Log
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -37,7 +38,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.Executors
 
-@OptIn(ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalGetImage::class)
 @Composable
 fun CreateFighterScreen(navController: NavController, viewModel: FighterViewModel) {
     val cameraPermissionState = rememberPermissionState(permission = Manifest.permission.CAMERA)

@@ -38,6 +38,12 @@ android {
     buildFeatures {
         compose = true
     }
+    // Renamed packagingOptions to packaging to resolve deprecation warning.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
