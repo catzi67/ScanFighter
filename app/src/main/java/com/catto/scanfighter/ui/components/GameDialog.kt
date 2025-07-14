@@ -25,7 +25,7 @@ fun GameDialog(
     title: String,
     onDismissRequest: () -> Unit,
     content: @Composable () -> Unit,
-    confirmButton: @Composable () -> Unit
+    confirmButton: (@Composable () -> Unit)? = null
 ) {
     Dialog(onDismissRequest = onDismissRequest) {
         Card(
@@ -45,12 +45,14 @@ fun GameDialog(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 content()
-                Spacer(modifier = Modifier.height(24.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    confirmButton()
+                if (confirmButton != null) {
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        confirmButton()
+                    }
                 }
             }
         }

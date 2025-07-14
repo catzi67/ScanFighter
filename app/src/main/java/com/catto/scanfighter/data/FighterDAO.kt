@@ -1,6 +1,7 @@
 package com.catto.scanfighter.data
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
@@ -13,6 +14,9 @@ interface FighterDao {
 
     @Update
     suspend fun updateFighter(fighter: Fighter)
+
+    @Delete
+    suspend fun deleteFighter(fighter: Fighter)
 
     @Query("SELECT * FROM fighters ORDER BY wins DESC")
     fun getAllFightersSortedByWins(): Flow<List<Fighter>>

@@ -25,6 +25,12 @@ class FighterViewModel(private val fighterDao: FighterDao) : ViewModel() {
             fighterDao.updateFighter(fighter)
         }
     }
+
+    fun deleteFighter(fighter: Fighter) {
+        viewModelScope.launch {
+            fighterDao.deleteFighter(fighter)
+        }
+    }
 }
 
 /**

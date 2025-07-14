@@ -1,25 +1,27 @@
 [versions]
 agp = "8.11.1"
-kotlin = "2.0.0"
+kotlin = "2.2.0"
 coreKtx = "1.16.0"
 junit = "4.13.2"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 lifecycleRuntimeKtx = "2.9.1"
 activityCompose = "1.10.1"
-composeBom = "2024.09.00"
+composeBom = "2025.06.01"
 # Added for Room
-room = "2.6.1"
+room = "2.7.2"
 # Added for Navigation
-navigationCompose = "2.8.0-beta06"
+navigationCompose = "2.9.1"
 # Added for CameraX
-camerax = "1.3.4"
+camerax = "1.4.2"
 # Added for Accompanist
-accompanist = "0.34.0"
+accompanist = "0.37.3"
 # Added for ML Kit
-mlkitBarcode = "17.2.0"
+mlkitBarcode = "17.3.0"
 # Added for KSP - Corrected Version
-ksp = "2.0.0-1.0.21"
+ksp = "2.2.0-2.0.2"
+# Added for Lifecycle Compose
+lifecycleRuntimeCompose = "2.9.1"
 
 
 [libraries]
@@ -52,6 +54,8 @@ androidx-camera-view = { group = "androidx.camera", name = "camera-view", versio
 accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
 # Added for ML Kit
 mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcode" }
+# Added for Lifecycle Compose
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
 
 
 [plugins]

@@ -71,6 +71,9 @@ dependencies {
     // ML Kit
     implementation(libs.mlkit.barcode.scanning)
 
+    // Lifecycle Compose
+    implementation(libs.androidx.lifecycle.runtime.compose)
+
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
