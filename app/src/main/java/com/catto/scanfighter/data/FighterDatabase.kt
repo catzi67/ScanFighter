@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [Fighter::class], version = 1, exportSchema = false)
+@Database(entities = [Fighter::class], version = 2, exportSchema = false)
 abstract class FighterDatabase : RoomDatabase() {
 
     abstract fun fighterDao(): FighterDao
@@ -20,7 +20,12 @@ abstract class FighterDatabase : RoomDatabase() {
                     context.applicationContext,
                     FighterDatabase::class.java,
                     "fighter_database"
-                ).build()
+                )
+                    // This is a simple migration strategy that will clear the database
+                    // if the schema changes. This is fine for development but should
+                    // be replaced with a proper migration for a production app.
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }
