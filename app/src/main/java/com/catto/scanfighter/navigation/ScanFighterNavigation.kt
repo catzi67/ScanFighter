@@ -1,35 +1,36 @@
-package com.catto.scanfighter.ui.navigation
+// app/src/main/java/com/catto/scanfighter/navigation/ScanFighterNavigation.kt
+package com.catto.scanfighter.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.catto.scanfighter.ScanFighterApplication
+import androidx.navigation.navArgument
 import com.catto.scanfighter.ui.screens.BattleScreen
 import com.catto.scanfighter.ui.screens.CreateFighterScreen
+import com.catto.scanfighter.ui.screens.FighterSelectionScreen
 import com.catto.scanfighter.ui.screens.LeaderboardScreen
 import com.catto.scanfighter.ui.screens.MainMenuScreen
 import com.catto.scanfighter.ui.screens.SplashScreen
-import com.catto.scanfighter.ui.viewmodels.FighterViewModel
-import com.catto.scanfighter.ui.viewmodels.FighterViewModelFactory
+import com.catto.scanfighter.utils.viewmodels.FighterViewModel
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
     object MainMenu : Screen("main_menu")
     object CreateFighter : Screen("create_fighter")
     object Leaderboard : Screen("leaderboard")
-    object Battle : Screen("battle")
+    object FighterSelection : Screen("fighter_selection")
+    object Battle : Screen("battle/{fighter1Id}/{fighter2Id}") {
+        fun createRoute(fighter1Id: Int, fighter2Id: Int) = "battle/$fighter1Id/$fighter2Id"
+    }
 }
 
 @Composable
 fun ScanFighterNavigation() {
     val navController = rememberNavController()
-    val application = LocalContext.current.applicationContext as ScanFighterApplication
-    val fighterViewModel: FighterViewModel = viewModel(
-        factory = FighterViewModelFactory(application.database.fighterDao())
-    )
+    val fighterViewModel: FighterViewModel = viewModel(factory = FighterViewModel.FighterViewModelFactory())
 
     NavHost(navController = navController, startDestination = Screen.Splash.route) {
         composable(Screen.Splash.route) {
@@ -39,13 +40,29 @@ fun ScanFighterNavigation() {
             MainMenuScreen(navController = navController)
         }
         composable(Screen.CreateFighter.route) {
-            CreateFighterScreen(navController = navController, viewModel = fighterViewModel)
+            CreateFighterScreen(navController = navController, fighterViewModel = fighterViewModel)
         }
         composable(Screen.Leaderboard.route) {
-            LeaderboardScreen(viewModel = fighterViewModel)
+            LeaderboardScreen(navController = navController, fighterViewModel = fighterViewModel)
         }
-        composable(Screen.Battle.route) {
-            BattleScreen()
+        composable(Screen.FighterSelection.route) {
+            FighterSelectionScreen(navController = navController, fighterViewModel = fighterViewModel)
+        }
+        composable(
+            route = Screen.Battle.route,
+            arguments = listOf(
+                navArgument("fighter1Id") { type = NavType.IntType },
+                navArgument("fighter2Id") { type = NavType.IntType }
+            )
+        ) { backStackEntry ->
+            val fighter1Id = backStackEntry.arguments?.getInt("fighter1Id") ?: -1
+            val fighter2Id = backStackEntry.arguments?.getInt("fighter2Id") ?: -1
+            BattleScreen(
+                navController = navController,
+                fighterViewModel = fighterViewModel,
+                fighter1Id = fighter1Id,
+                fighter2Id = fighter2Id
+            )
         }
     }
 }
