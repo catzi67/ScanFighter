@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.catto.scanfighter.data.Fighter
+import com.catto.scanfighter.ui.components.ColorSignature
 import com.catto.scanfighter.ui.components.GameButton
 import com.catto.scanfighter.ui.components.GameDialog
 import com.catto.scanfighter.ui.components.GameTextField
@@ -39,6 +40,9 @@ import com.catto.scanfighter.ui.theme.Bronze
 import com.catto.scanfighter.ui.theme.Gold
 import com.catto.scanfighter.ui.theme.Silver
 import com.catto.scanfighter.ui.viewmodels.FighterViewModel
+import com.catto.scanfighter.utils.FighterStatsGenerator
+import com.catto.scanfighter.utils.MusicUtils
+import com.catto.scanfighter.utils.SoundPlayer
 
 @Composable
 fun LeaderboardScreen(viewModel: FighterViewModel) {
@@ -48,6 +52,7 @@ fun LeaderboardScreen(viewModel: FighterViewModel) {
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
+    val soundPlayer = remember { SoundPlayer() }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -80,6 +85,9 @@ fun LeaderboardScreen(viewModel: FighterViewModel) {
                         onClick = {
                             selectedFighter = fighter
                             showOptionsDialog = true
+                        },
+                        onNotePlayed = { frequency ->
+                            soundPlayer.playNote(frequency)
                         }
                     )
                 }
@@ -153,12 +161,18 @@ fun LeaderboardScreen(viewModel: FighterViewModel) {
 }
 
 @Composable
-fun FighterCard(fighter: Fighter, medalColor: Color?, onClick: () -> Unit) {
+fun FighterCard(fighter: Fighter, medalColor: Color?, onClick: () -> Unit, onNotePlayed: (Float) -> Unit) {
+    val colors = remember(fighter.barcode) {
+        FighterStatsGenerator.generateColorSignature(fighter.barcode)
+    }
+    val musicalSignature = remember(fighter.barcode) {
+        MusicUtils.generateMusicalSignature(fighter.barcode)
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .clickable(onClick = onClick),
+            .padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -166,29 +180,43 @@ fun FighterCard(fighter: Fighter, medalColor: Color?, onClick: () -> Unit) {
         border = medalColor?.let { BorderStroke(4.dp, it) }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = fighter.name,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+            // This inner Column now contains the clickable area for editing.
+            Column(modifier = Modifier.clickable(onClick = onClick)) {
+                Text(
+                    text = fighter.name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Stats are now in a single Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "HP: ${fighter.hp}")
+                    Text(text = "AT: ${fighter.attack}")
+                    Text(text = "DE: ${fighter.defense}")
+                    Text(text = "SP: ${fighter.speed}")
+                    Text(text = "LU: ${fighter.luck}")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Row {
+                    Text(text = "Wins: ${fighter.wins}", fontWeight = FontWeight.Bold, color = Gold)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(text = "Losses: ${fighter.losses}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // The ColorSignature is now outside the clickable area.
+            ColorSignature(
+                colors = colors,
+                onColorBarClick = { index ->
+                    onNotePlayed(musicalSignature[index])
+                }
             )
-            Row {
-                Text(text = "HP: ${fighter.hp}")
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(text = "Attack: ${fighter.attack}")
-            }
-            Row {
-                Text(text = "Defense: ${fighter.defense}")
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(text = "Speed: ${fighter.speed}")
-            }
-            Text(text = "Luck: ${fighter.luck}")
-            Spacer(modifier = Modifier.padding(top = 8.dp))
-            Row {
-                Text(text = "Wins: ${fighter.wins}", fontWeight = FontWeight.Bold, color = Gold)
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(text = "Losses: ${fighter.losses}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-            }
         }
     }
 }

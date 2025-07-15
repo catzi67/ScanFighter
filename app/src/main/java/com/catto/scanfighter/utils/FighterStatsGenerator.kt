@@ -1,5 +1,6 @@
 package com.catto.scanfighter.utils
 
+import androidx.compose.ui.graphics.Color
 import com.catto.scanfighter.data.Fighter
 import java.nio.ByteBuffer
 import java.security.MessageDigest
@@ -33,5 +34,20 @@ object FighterStatsGenerator {
             speed = speed,
             luck = luck
         )
+    }
+
+    fun generateColorSignature(barcode: String, count: Int = 5): List<Color> {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hashBytes = digest.digest(barcode.toByteArray(Charsets.UTF_8))
+        val seed = ByteBuffer.wrap(hashBytes, 0, 8).long
+        val colors = mutableListOf<Color>()
+
+        for (i in 0 until count) {
+            val h = (abs(seed shr (i * 8)) % 360).toFloat()
+            val s = 0.5f + (abs(seed shr (i * 4)) % 50) / 100f
+            val v = 0.7f + (abs(seed shr (i * 2)) % 30) / 100f
+            colors.add(Color.hsv(h, s, v))
+        }
+        return colors
     }
 }
