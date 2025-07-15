@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.catto.scanfighter.data.Fighter
 import com.catto.scanfighter.ui.components.ColorSignature
 import com.catto.scanfighter.ui.components.GameButton
@@ -39,13 +40,13 @@ import com.catto.scanfighter.ui.components.GameTextField
 import com.catto.scanfighter.ui.theme.Bronze
 import com.catto.scanfighter.ui.theme.Gold
 import com.catto.scanfighter.ui.theme.Silver
-import com.catto.scanfighter.ui.viewmodels.FighterViewModel
 import com.catto.scanfighter.utils.FighterStatsGenerator
 import com.catto.scanfighter.utils.MusicUtils
 import com.catto.scanfighter.utils.SoundPlayer
+import com.catto.scanfighter.utils.viewmodels.FighterViewModel
 
 @Composable
-fun LeaderboardScreen(viewModel: FighterViewModel) {
+fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel) {
     val fighters by viewModel.allFighters.collectAsState(initial = emptyList())
     var selectedFighter by remember { mutableStateOf<Fighter?>(null) }
     var showOptionsDialog by remember { mutableStateOf(false) }
@@ -180,7 +181,6 @@ fun FighterCard(fighter: Fighter, medalColor: Color?, onClick: () -> Unit, onNot
         border = medalColor?.let { BorderStroke(4.dp, it) }
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // This inner Column now contains the clickable area for editing.
             Column(modifier = Modifier.clickable(onClick = onClick)) {
                 Text(
                     text = fighter.name,
@@ -189,16 +189,22 @@ fun FighterCard(fighter: Fighter, medalColor: Color?, onClick: () -> Unit, onNot
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                // Stats are now in a single Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = "HP: ${fighter.hp}")
-                    Text(text = "AT: ${fighter.attack}")
-                    Text(text = "DE: ${fighter.defense}")
-                    Text(text = "SP: ${fighter.speed}")
-                    Text(text = "LU: ${fighter.luck}")
+                    Text(text = "HP: ${fighter.health}")
+                    Text(text = "ATK: ${fighter.attack}")
+                    Text(text = "DEF: ${fighter.defense}")
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = "SPD: ${fighter.speed}")
+                    Text(text = "SKL: ${fighter.skill}")
+                    Text(text = "LUK: ${fighter.luck}")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row {
@@ -210,7 +216,6 @@ fun FighterCard(fighter: Fighter, medalColor: Color?, onClick: () -> Unit, onNot
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // The ColorSignature is now outside the clickable area.
             ColorSignature(
                 colors = colors,
                 onColorBarClick = { index ->

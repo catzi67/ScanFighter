@@ -1,20 +1,17 @@
-// app/src/main/java/com/catto/scanfighter/data/FighterRepository.kt
 package com.catto.scanfighter.data
 
-import com.catto.scanfighter.data.Fighter
-import com.catto.scanfighter.data.FighterDao
 import kotlinx.coroutines.flow.Flow
 
 class FighterRepository(private val fighterDao: FighterDao) {
 
-    val allFighters: Flow<List<Fighter>> = fighterDao.getAllFighters()
+    val allFighters: Flow<List<Fighter>> = fighterDao.getAllFightersSortedByWins()
 
     suspend fun getFighterById(id: Int): Fighter? {
         return fighterDao.getFighterById(id)
     }
 
     suspend fun addFighter(fighter: Fighter) {
-        fighterDao.addFighter(fighter)
+        fighterDao.insertFighter(fighter)
     }
 
     suspend fun updateFighter(fighter: Fighter) {

@@ -20,4 +20,10 @@ interface FighterDao {
 
     @Query("SELECT * FROM fighters ORDER BY wins DESC")
     fun getAllFightersSortedByWins(): Flow<List<Fighter>>
+
+    @Query("SELECT * FROM fighters WHERE id = :id")
+    suspend fun getFighterById(id: Int): Fighter?
+
+    @Query("SELECT * FROM fighters")
+    fun getAllFighters(): Flow<List<Fighter>>
 }

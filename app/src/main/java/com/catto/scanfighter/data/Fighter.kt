@@ -9,11 +9,12 @@ data class Fighter(
     val id: Int = 0,
     val name: String,
     val barcode: String,
-    val hp: Int,
+    val health: Int,
     val attack: Int,
     val defense: Int,
     val speed: Int,
     val luck: Int,
+    val skill: Int, // Add this line
     val wins: Int = 0,
     val losses: Int = 0
 )

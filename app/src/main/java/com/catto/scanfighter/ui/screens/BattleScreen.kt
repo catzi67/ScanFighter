@@ -1,4 +1,3 @@
-// app/src/main/java/com/catto/scanfighter/ui/screens/BattleScreen.kt
 package com.catto.scanfighter.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
@@ -11,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,26 +23,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.catto.scanfighter.data.Fighter
-import com.catto.scanfighter.navigation.Screen
+import com.catto.scanfighter.data.FighterRepository
+import com.catto.scanfighter.ui.components.ColorSignature
+import com.catto.scanfighter.ui.navigation.Screen
 import com.catto.scanfighter.ui.components.GameButton
 import com.catto.scanfighter.ui.components.GameDialog
 import com.catto.scanfighter.ui.theme.Purple40
-import com.catto.scanfighter.ui.theme.PurpleGrey40
+import com.catto.scanfighter.utils.FighterStatsGenerator
+import com.catto.scanfighter.utils.MusicUtils
+import com.catto.scanfighter.utils.SoundPlayer
 import com.catto.scanfighter.utils.viewmodels.BattleViewModel
-import com.catto.scanfighter.utils.viewmodels.FighterViewModel
 import kotlinx.coroutines.launch
 
 @Composable
 fun BattleScreen(
     navController: NavController,
-    fighterViewModel: FighterViewModel,
+    repository: FighterRepository,
     fighter1Id: Int,
     fighter2Id: Int
 ) {
     val battleViewModel: BattleViewModel = viewModel(
         factory = BattleViewModel.BattleViewModelFactory(
-            fighterViewModel.repository,
+            repository,
             fighter1Id,
             fighter2Id
         )
@@ -52,6 +54,12 @@ fun BattleScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
+    LaunchedEffect(battleState.isLoading, battleState.isBattleOver) {
+        if (!battleState.isLoading && !battleState.isBattleOver) {
+            battleViewModel.runFullBattle()
+        }
+    }
+
     LaunchedEffect(battleState.battleLog.size) {
         if (battleState.battleLog.isNotEmpty()) {
             coroutineScope.launch {
@@ -60,56 +68,54 @@ fun BattleScreen(
         }
     }
 
-    if (battleState.isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(text = "Preparing for battle...", fontSize = 20.sp)
-        }
-    } else {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.Top
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        if (battleState.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(text = "Preparing for battle...", fontSize = 20.sp)
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .systemBarsPadding()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                FighterStatus(fighter = battleState.fighter1)
-                Text(
-                    text = "VS",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.CenterVertically)
-                )
-                FighterStatus(fighter = battleState.fighter2)
-            }
-            Spacer(modifier = Modifier.height(24.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    FighterStatus(fighter = battleState.fighter1)
+                    Text(
+                        text = "VS",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.CenterVertically)
+                    )
+                    FighterStatus(fighter = battleState.fighter2)
+                }
+                Spacer(modifier = Modifier.height(24.dp))
 
-            BattleLog(log = battleState.battleLog, modifier = Modifier.weight(1f))
+                BattleLog(log = battleState.battleLog, modifier = Modifier.weight(1f))
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            if (!battleState.isBattleOver) {
-                GameButton(
-                    text = "Next Turn",
-                    onClick = { battleViewModel.nextTurn() }
-                )
-            }
-
-            if (battleState.isBattleOver) {
-                GameDialog(
-                    title = "Battle Over!",
-                    message = "${battleState.winner?.name ?: "No one"} is victorious!",
-                    onDismiss = { /* Can't dismiss */ },
-                    onConfirm = {
-                        navController.navigate(Screen.MainMenu.route) {
-                            popUpTo(Screen.MainMenu.route) { inclusive = true }
+                if (battleState.isBattleOver) {
+                    GameButton(
+                        text = "Back to Menu",
+                        onClick = {
+                            navController.navigate(Screen.MainMenu.route) {
+                                popUpTo(Screen.MainMenu.route) { inclusive = true }
+                            }
                         }
-                    },
-                    confirmText = "Back to Menu"
-                )
+                    )
+                }
             }
         }
     }
@@ -117,29 +123,71 @@ fun BattleScreen(
 
 @Composable
 fun FighterStatus(fighter: BattleViewModel.BattleFighter?) {
+    val soundPlayer = remember { SoundPlayer() }
+
     fighter?.let {
+        val colors = remember(it.fighter.barcode) {
+            FighterStatsGenerator.generateColorSignature(it.fighter.barcode)
+        }
+        val musicalSignature = remember(it.fighter.barcode) {
+            MusicUtils.generateMusicalSignature(it.fighter.barcode)
+        }
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.width(150.dp)
+            modifier = Modifier
+                .width(150.dp)
+                .fillMaxHeight()
+                .background(
+                    MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                    shape = MaterialTheme.shapes.medium
+                )
+                .border(
+                    width = 2.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = MaterialTheme.shapes.medium
+                )
+                .padding(8.dp)
         ) {
-            Text(
-                text = it.fighter.name,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                textAlign = TextAlign.Center
-            )
+            Box(
+                modifier = Modifier.height(60.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = it.fighter.name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 20.sp
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = "HP: ${it.currentHp}/${it.fighter.health}", fontSize = 14.sp)
             HealthBar(currentHp = it.currentHp, maxHp = it.fighter.health)
             Spacer(modifier = Modifier.height(8.dp))
-            Column(horizontalAlignment = Alignment.Start) {
+            Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
                 Text(text = "ATK: ${it.fighter.attack}", fontSize = 12.sp)
                 Text(text = "DEF: ${it.fighter.defense}", fontSize = 12.sp)
                 Text(text = "SPD: ${it.fighter.speed}", fontSize = 12.sp)
+                Text(text = "SKL: ${it.fighter.skill}", fontSize = 12.sp)
+                Text(text = "LUK: ${it.fighter.luck}", fontSize = 12.sp)
             }
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (it.isStunned) {
                 Text(text = "STUNNED", color = Color.Red, fontWeight = FontWeight.Bold)
+            } else {
+                Text(text = "", fontWeight = FontWeight.Bold)
             }
+
+            Spacer(Modifier.weight(1f))
+
+            ColorSignature(
+                colors = colors,
+                onColorBarClick = { index ->
+                    soundPlayer.playNote(musicalSignature[index])
+                }
+            )
         }
     }
 }
@@ -163,11 +211,11 @@ fun HealthBar(currentHp: Int, maxHp: Int) {
             .fillMaxWidth()
             .height(20.dp)
             .clip(MaterialTheme.shapes.small)
-            .background(PurpleGrey40)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.3f))
             .border(1.dp, Purple40, MaterialTheme.shapes.small)
     ) {
         LinearProgressIndicator(
-            progress = animatedProgress,
+            progress = { animatedProgress },
             modifier = Modifier.fillMaxSize(),
             color = barColor,
             trackColor = Color.Transparent
@@ -187,7 +235,7 @@ fun BattleLog(log: List<String>, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(PurpleGrey40.copy(alpha = 0.2f), shape = MaterialTheme.shapes.medium)
+            .background(Color.Black, shape = MaterialTheme.shapes.medium)
             .border(1.dp, Purple40, MaterialTheme.shapes.medium)
             .padding(8.dp)
     ) {
@@ -196,7 +244,8 @@ fun BattleLog(log: List<String>, modifier: Modifier = Modifier) {
                 Text(
                     text = message,
                     modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp),
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    color = Color.White
                 )
             }
         }

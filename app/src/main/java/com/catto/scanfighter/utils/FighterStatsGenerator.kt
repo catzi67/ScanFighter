@@ -24,15 +24,17 @@ object FighterStatsGenerator {
         val defense = 5 + (abs(seed shr 16) % 36).toInt() // Defense: 5-40
         val speed = 1 + (abs(seed shr 24) % 20).toInt()  // Speed: 1-20
         val luck = 1 + (abs(seed shr 32) % 10).toInt() // Luck: 1-10
+        val skill = 5 + (abs(seed shr 40) % 26).toInt() // Skill: 5-30
 
         return Fighter(
             name = name,
             barcode = barcode,
-            hp = hp,
+            health = hp,
             attack = attack,
             defense = defense,
             speed = speed,
-            luck = luck
+            luck = luck,
+            skill = skill
         )
     }
 

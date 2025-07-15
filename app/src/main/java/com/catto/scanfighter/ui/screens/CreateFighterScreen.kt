@@ -30,7 +30,7 @@ import androidx.navigation.NavController
 import com.catto.scanfighter.ui.components.GameButton
 import com.catto.scanfighter.ui.components.GameDialog
 import com.catto.scanfighter.ui.components.GameTextField
-import com.catto.scanfighter.ui.viewmodels.FighterViewModel
+import com.catto.scanfighter.utils.viewmodels.FighterViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
