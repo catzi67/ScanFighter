@@ -25,6 +25,27 @@ object FighterStatsGenerator {
         val luck = 1 + (abs(seed shr 32) % 10).toInt()
         val skill = 5 + (abs(seed shr 40) % 26).toInt()
 
+        // Determines the special move based on the fighter's highest stat.
+        val stats = mapOf(
+            "attack" to attack,
+            "defense" to defense,
+            "skill" to skill,
+            "speed" to speed,
+            "hp" to hp,
+            "luck" to luck
+        )
+        val highestStat = stats.maxByOrNull { it.value }?.key
+
+        val specialMoveType = when (highestStat) {
+            "attack" -> "power_attack"
+            "defense" -> "shield_up"
+            "skill" -> "combo_strike"
+            "speed" -> "evasive_stance"
+            "hp" -> "regeneration"
+            "luck" -> "lucky_gambit"
+            else -> "power_attack" // Default case
+        }
+
         return Fighter(
             name = name,
             barcode = barcode,
@@ -33,7 +54,8 @@ object FighterStatsGenerator {
             defense = defense,
             speed = speed,
             luck = luck,
-            skill = skill
+            skill = skill,
+            specialMoveType = specialMoveType // Assign the generated special move
         )
     }
 

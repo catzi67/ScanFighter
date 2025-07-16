@@ -14,7 +14,8 @@ data class Fighter(
     val defense: Int,
     val speed: Int,
     val luck: Int,
-    val skill: Int, // Add this line
+    val skill: Int,
+    val specialMoveType: String, // Added to define the fighter's unique special move
     val wins: Int = 0,
     val losses: Int = 0
 )
