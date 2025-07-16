@@ -1,6 +1,8 @@
 package com.catto.scanfighter.ui.screens
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -65,6 +67,28 @@ fun BattleScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
+    // Screen shake animation
+    val shakeController = remember { Animatable(0f) }
+    LaunchedEffect(battleState.screenShakeTrigger) {
+        if (battleState.screenShakeTrigger > 0) {
+            coroutineScope.launch {
+                shakeController.animateTo(
+                    targetValue = 0f,
+                    animationSpec = keyframes {
+                        durationMillis = 500
+                        -10f at 50
+                        10f at 100
+                        -10f at 150
+                        10f at 200
+                        -5f at 250
+                        5f at 300
+                        0f at 350
+                    }
+                )
+            }
+        }
+    }
+
     LaunchedEffect(battleState.isLoading, battleState.isBattleOver) {
         if (!battleState.isLoading && !battleState.isBattleOver) {
             battleViewModel.runFullBattle()
@@ -91,6 +115,7 @@ fun BattleScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .offset(x = shakeController.value.dp, y = 0.dp)
                     .systemBarsPadding()
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally

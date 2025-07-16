@@ -65,7 +65,8 @@ class BattleViewModel(
         val battleLog: List<BattleLogEntry> = emptyList(),
         val isBattleOver: Boolean = false,
         val winner: Fighter? = null,
-        val isFighter1Turn: Boolean = true
+        val isFighter1Turn: Boolean = true,
+        val screenShakeTrigger: Int = 0
     ) {
         val isLoading: Boolean
             get() = !areFightersReady || !areSoundsReady
@@ -153,6 +154,7 @@ class BattleViewModel(
 
 
         val newLog = mutableListOf<BattleLogEntry>()
+        var shouldShakeScreen = false
 
         // --- Pre-turn effects ---
         if (attacker.specialMoveCooldown > 0) attacker.specialMoveCooldown--
@@ -183,9 +185,9 @@ class BattleViewModel(
             val useSpecial = attacker.specialMoveCooldown == 0 && Random.nextInt(100) < 40 // 40% chance
 
             if (useSpecial) {
-                executeSpecialMove(attacker, defender, attackerColor, defenderColor, newLog)
+                shouldShakeScreen = executeSpecialMove(attacker, defender, attackerColor, defenderColor, newLog)
             } else {
-                executeNormalAttack(attacker, defender, attackerColor, defenderColor, newLog)
+                shouldShakeScreen = executeNormalAttack(attacker, defender, attackerColor, defenderColor, newLog)
             }
         }
 
@@ -211,12 +213,13 @@ class BattleViewModel(
                 fighter1 = updatedFighter1.copy(),
                 fighter2 = updatedFighter2.copy(),
                 battleLog = it.battleLog + newLog,
-                isFighter1Turn = !it.isFighter1Turn
+                isFighter1Turn = !it.isFighter1Turn,
+                screenShakeTrigger = if (shouldShakeScreen) it.screenShakeTrigger + 1 else it.screenShakeTrigger
             )
         }
     }
 
-    private fun executeNormalAttack(attacker: BattleFighter, defender: BattleFighter, attackerColor: Color, defenderColor: Color, newLog: MutableList<BattleLogEntry>) {
+    private fun executeNormalAttack(attacker: BattleFighter, defender: BattleFighter, attackerColor: Color, defenderColor: Color, newLog: MutableList<BattleLogEntry>): Boolean {
         val attackerSource = if (_uiState.value.isFighter1Turn) MessageSource.FIGHTER1 else MessageSource.FIGHTER2
         val defenderSource = if (_uiState.value.isFighter1Turn) MessageSource.FIGHTER2 else MessageSource.FIGHTER1
 
@@ -224,7 +227,7 @@ class BattleViewModel(
         if (Random.nextInt(100) > hitChance && Random.nextInt(100) > attacker.fighter.luck) {
             newLog.add(BattleLogEntry(message = "${attacker.fighter.name} attacks, but ${defender.fighter.name} dodges!", color = attackerColor, fontStyle = FontStyle.Italic, source = attackerSource))
             battleSoundPlayer.playMissSound()
-            return
+            return false
         }
 
         val isCritical = Random.nextInt(100) < (attacker.fighter.skill + attacker.fighter.luck / 2)
@@ -263,10 +266,12 @@ class BattleViewModel(
             newLog.add(BattleLogEntry(message = "COMBO! ${attacker.fighter.name} strikes again for $comboDamage damage!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
             battleSoundPlayer.playHitSound()
         }
+        return isCritical
     }
 
-    private fun executeSpecialMove(attacker: BattleFighter, defender: BattleFighter, attackerColor: Color, defenderColor: Color, newLog: MutableList<BattleLogEntry>) {
+    private fun executeSpecialMove(attacker: BattleFighter, defender: BattleFighter, attackerColor: Color, defenderColor: Color, newLog: MutableList<BattleLogEntry>): Boolean {
         val attackerSource = if (_uiState.value.isFighter1Turn) MessageSource.FIGHTER1 else MessageSource.FIGHTER2
+        var shouldShake = false
 
         attacker.specialMoveCooldown = 5 // Set cooldown for all special moves
 
@@ -277,6 +282,7 @@ class BattleViewModel(
                 val damage = (attacker.fighter.attack * 2 - defender.fighter.defense * 0.5).toInt().coerceAtLeast(5)
                 defender.currentHp -= damage
                 newLog.add(BattleLogEntry(message = "A massive blow deals $damage damage!", color = attackerColor, source = attackerSource))
+                shouldShake = true
             }
             "shield_up" -> {
                 newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses SHIELD UP!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
@@ -309,6 +315,7 @@ class BattleViewModel(
                         val damage = (attacker.fighter.attack * 2.5).toInt()
                         defender.currentHp -= damage
                         newLog.add(BattleLogEntry(message = "JACKPOT! A huge hit for $damage damage!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
+                        shouldShake = true
                     }
                     1 -> {
                         if (attacker.currentHp < attacker.fighter.health) {
@@ -336,6 +343,7 @@ class BattleViewModel(
                 executeNormalAttack(attacker, defender, attackerColor, defenderColor, newLog)
             }
         }
+        return shouldShake
     }
 
 
