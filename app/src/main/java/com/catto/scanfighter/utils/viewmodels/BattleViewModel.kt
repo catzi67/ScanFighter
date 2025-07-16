@@ -54,27 +54,31 @@ class BattleViewModel(
         var poisonTurns: Int = 0,
         var attackModifier: Int = 0,
         var defenseModifier: Int = 0,
-        var specialMoveCooldown: Int = 0,
-        var turnsUntilRegenEnds: Int = 0,
-        var hasRegenerated: Boolean = false // Track if regeneration has been used
+        var specialMoveCooldown: Int = 0
     )
 
     data class BattleUiState(
-        val isLoading: Boolean = true,
+        val areFightersReady: Boolean = false,
+        val areSoundsReady: Boolean = false,
         val fighter1: BattleFighter? = null,
         val fighter2: BattleFighter? = null,
         val battleLog: List<BattleLogEntry> = emptyList(),
         val isBattleOver: Boolean = false,
         val winner: Fighter? = null,
         val isFighter1Turn: Boolean = true
-    )
+    ) {
+        val isLoading: Boolean
+            get() = !areFightersReady || !areSoundsReady
+    }
 
     private val _uiState = MutableStateFlow(BattleUiState())
     val uiState: StateFlow<BattleUiState> = _uiState.asStateFlow()
 
     init {
-        // Instantiate BattleSoundPlayer with the provided context
-        battleSoundPlayer = BattleSoundPlayer(context)
+        // Instantiate BattleSoundPlayer with a callback to be notified when sounds are loaded.
+        battleSoundPlayer = BattleSoundPlayer(context) {
+            _uiState.update { it.copy(areSoundsReady = true) }
+        }
         loadFighters()
     }
 
@@ -84,15 +88,14 @@ class BattleViewModel(
             val f2 = repository.getFighterById(fighter2Id)
 
             if (f1 != null && f2 != null) {
-                val battleFighter1 = BattleFighter(f1, f1.health)
-                val battleFighter2 = BattleFighter(f2, f2.health)
-                val isFighter1Turn = f1.speed >= f2.speed
+                val bf1 = BattleFighter(f1, f1.health)
+                val bf2 = BattleFighter(f2, f2.health)
                 _uiState.update {
                     it.copy(
-                        isLoading = false,
-                        fighter1 = battleFighter1,
-                        fighter2 = battleFighter2,
-                        isFighter1Turn = isFighter1Turn,
+                        areFightersReady = true,
+                        fighter1 = bf1,
+                        fighter2 = bf2,
+                        isFighter1Turn = f1.speed >= f2.speed,
                         battleLog = listOf(
                             BattleLogEntry(
                                 message = "The battle between ${f1.name} and ${f2.name} begins!",
@@ -165,17 +168,6 @@ class BattleViewModel(
                 newLog.add(BattleLogEntry(message = "${attacker.fighter.name} is no longer poisoned.", color = attackerColor, source = attackerSource))
             }
         }
-
-        if (attacker.turnsUntilRegenEnds > 0) {
-            if (attacker.currentHp < attacker.fighter.health) {
-                val healAmount = (attacker.fighter.health * 0.07).toInt().coerceAtLeast(1)
-                attacker.currentHp = (attacker.currentHp + healAmount).coerceAtMost(attacker.fighter.health)
-                newLog.add(BattleLogEntry(message = "${attacker.fighter.name} regenerates $healAmount HP!", color = attackerColor, source = attackerSource))
-                battleSoundPlayer.playRegenerationSound()
-            }
-            attacker.turnsUntilRegenEnds--
-        }
-
 
         if (attacker.currentHp <= 0) {
             endBattle(defender, attacker, newLog)
@@ -275,31 +267,31 @@ class BattleViewModel(
 
     private fun executeSpecialMove(attacker: BattleFighter, defender: BattleFighter, attackerColor: Color, defenderColor: Color, newLog: MutableList<BattleLogEntry>) {
         val attackerSource = if (_uiState.value.isFighter1Turn) MessageSource.FIGHTER1 else MessageSource.FIGHTER2
-        val defenderSource = if (_uiState.value.isFighter1Turn) MessageSource.FIGHTER2 else MessageSource.FIGHTER1
 
-        newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses ${attacker.fighter.specialMoveType.replace('_', ' ').uppercase()}!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
         attacker.specialMoveCooldown = 5 // Set cooldown for all special moves
 
         when (attacker.fighter.specialMoveType) {
             "power_attack" -> {
+                newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses POWER ATTACK!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
                 battleSoundPlayer.playEnrageSound()
                 val damage = (attacker.fighter.attack * 2 - defender.fighter.defense * 0.5).toInt().coerceAtLeast(5)
                 defender.currentHp -= damage
                 newLog.add(BattleLogEntry(message = "A massive blow deals $damage damage!", color = attackerColor, source = attackerSource))
             }
             "shield_up" -> {
+                newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses SHIELD UP!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
                 battleSoundPlayer.playFocusSound()
                 attacker.defenseModifier += 20 // A significant but temporary boost
                 newLog.add(BattleLogEntry(message = "${attacker.fighter.name} raises their defense!", color = attackerColor, source = attackerSource))
-                // This modifier will wear off naturally as it's not persisted anywhere
             }
             "combo_strike" -> {
-                newLog.add(BattleLogEntry(message = "A flurry of blows!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
+                newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses COMBO STRIKE!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
                 repeat(2) {
                     if(defender.currentHp > 0) executeNormalAttack(attacker, defender, attackerColor, defenderColor, newLog)
                 }
             }
             "evasive_stance" -> {
+                newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses EVASIVE STANCE!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
                 battleSoundPlayer.playFocusSound()
                 if (attacker.currentHp < attacker.fighter.health) {
                     val healAmount = (attacker.fighter.health * 0.2).toInt().coerceAtLeast(1)
@@ -309,22 +301,8 @@ class BattleViewModel(
                     newLog.add(BattleLogEntry(message = "${attacker.fighter.name} is already at full health!", color = attackerColor, source = attackerSource))
                 }
             }
-            "regeneration" -> {
-                if (!attacker.hasRegenerated) {
-                    // Consume the single use of regeneration immediately.
-                    attacker.hasRegenerated = true
-                    battleSoundPlayer.playRegenerationSound()
-                    if (attacker.currentHp < attacker.fighter.health) {
-                        attacker.turnsUntilRegenEnds = 2
-                        newLog.add(BattleLogEntry(message = "${attacker.fighter.name} begins to regenerate health!", color = attackerColor, source = attackerSource))
-                    } else {
-                        newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses Regeneration, but is already at full health!", color = attackerColor, source = attackerSource))
-                    }
-                } else {
-                    newLog.add(BattleLogEntry(message = "${attacker.fighter.name} tries to use Regeneration again, but fails!", color = attackerColor, fontStyle = FontStyle.Italic, source = attackerSource))
-                }
-            }
             "lucky_gambit" -> {
+                newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses LUCKY GAMBIT!", color = attackerColor, fontWeight = FontWeight.Bold, source = attackerSource))
                 battleSoundPlayer.playFocusSound()
                 when(Random.nextInt(4)) {
                     0 -> {
@@ -341,6 +319,7 @@ class BattleViewModel(
                         }
                     }
                     2 -> {
+                        val defenderSource = if (_uiState.value.isFighter1Turn) MessageSource.FIGHTER2 else MessageSource.FIGHTER1
                         defender.isStunned = true
                         newLog.add(BattleLogEntry(message = "WHAT LUCK! ${defender.fighter.name} is stunned!", color = defenderColor, fontWeight = FontWeight.Bold, source = defenderSource))
                     }
@@ -350,6 +329,11 @@ class BattleViewModel(
                         newLog.add(BattleLogEntry(message = "BAD LUCK! The move backfires, dealing $damage damage to ${attacker.fighter.name}!", color = attackerColor, fontStyle = FontStyle.Italic, source = attackerSource))
                     }
                 }
+            }
+            else -> {
+                // This will catch legacy fighters with "regeneration" or any other invalid move.
+                newLog.add(BattleLogEntry(message = "${attacker.fighter.name}'s special move fizzles! They attack normally instead.", color = attackerColor, fontStyle = FontStyle.Italic, source = attackerSource))
+                executeNormalAttack(attacker, defender, attackerColor, defenderColor, newLog)
             }
         }
     }

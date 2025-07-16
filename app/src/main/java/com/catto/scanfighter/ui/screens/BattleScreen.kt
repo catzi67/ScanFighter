@@ -213,9 +213,6 @@ fun FighterStatus(fighter: BattleViewModel.BattleFighter?, titleColor: Color, ba
                     battleFighter.isPoisoned -> {
                         Text(text = "POISONED", color = Color.Magenta, fontWeight = FontWeight.Bold)
                     }
-                    battleFighter.turnsUntilRegenEnds > 0 -> {
-                        Text(text = "REGENERATING", color = Color.Green, fontWeight = FontWeight.Bold)
-                    }
                     else -> {
                         Text(text = "", fontWeight = FontWeight.Bold) // Placeholder for alignment
                     }

@@ -41,7 +41,7 @@ object FighterStatsGenerator {
             "defense" -> "shield_up"
             "skill" -> "combo_strike"
             "speed" -> "evasive_stance"
-            "hp" -> "regeneration"
+            "hp" -> "evasive_stance" // Changed from "regeneration"
             "luck" -> "lucky_gambit"
             else -> "power_attack" // Default case
         }

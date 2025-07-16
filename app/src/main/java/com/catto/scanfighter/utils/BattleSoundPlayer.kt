@@ -13,17 +13,20 @@ import kotlinx.coroutines.launch
  * A dedicated sound player for battle-specific sound effects.
  * This class encapsulates the logic for generating sounds for different battle events.
  */
-class BattleSoundPlayer(context: Context) {
+class BattleSoundPlayer(context: Context, onSoundsLoaded: () -> Unit) {
 
     private val soundPlayer = SoundPlayer() // Kept for generated tones
     private val coroutineScope = CoroutineScope(Dispatchers.Default)
 
     // New SoundPool for playing samples
     private val soundPool: SoundPool
+    private var isSoundPoolLoaded = false
+
     private var swordSoundId: Int = 0
     private var missSoundId: Int = 0
-    private var regenerationSoundId: Int = 0
-    private var isSoundPoolLoaded = false
+
+    private val soundsToLoad = 2 // sword, miss
+    private var soundsLoadedCount = 0
 
     init {
         val audioAttributes = AudioAttributes.Builder()
@@ -38,14 +41,17 @@ class BattleSoundPlayer(context: Context) {
 
         soundPool.setOnLoadCompleteListener { _, _, status ->
             if (status == 0) {
-                isSoundPoolLoaded = true
+                soundsLoadedCount++
+                if (soundsLoadedCount == soundsToLoad) {
+                    isSoundPoolLoaded = true
+                    onSoundsLoaded()
+                }
             }
         }
 
         // Load the sound sample from res/raw
         swordSoundId = soundPool.load(context, R.raw.sword, 1)
         missSoundId = soundPool.load(context, R.raw.uurgghh, 1)
-        regenerationSoundId = soundPool.load(context, R.raw.regeneration, 1)
     }
 
     private fun playSample(soundId: Int, rate: Float = 1.0f) {
@@ -115,13 +121,6 @@ class BattleSoundPlayer(context: Context) {
             delay(100)
             soundPlayer.playNote(1000f, 250)
         }
-    }
-
-    /**
-     * Plays a gentle sound for healing.
-     */
-    fun playRegenerationSound() {
-        playSample(regenerationSoundId)
     }
 
     /**
