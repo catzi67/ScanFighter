@@ -55,7 +55,8 @@ class BattleViewModel(
         var attackModifier: Int = 0,
         var defenseModifier: Int = 0,
         var specialMoveCooldown: Int = 0,
-        var turnsUntilRegenEnds: Int = 0
+        var turnsUntilRegenEnds: Int = 0,
+        var hasRegenerated: Boolean = false // Track if regeneration has been used
     )
 
     data class BattleUiState(
@@ -170,7 +171,7 @@ class BattleViewModel(
                 val healAmount = (attacker.fighter.health * 0.07).toInt().coerceAtLeast(1)
                 attacker.currentHp = (attacker.currentHp + healAmount).coerceAtMost(attacker.fighter.health)
                 newLog.add(BattleLogEntry(message = "${attacker.fighter.name} regenerates $healAmount HP!", color = attackerColor, source = attackerSource))
-                battleSoundPlayer.playHealSound()
+                battleSoundPlayer.playRegenerationSound()
             }
             attacker.turnsUntilRegenEnds--
         }
@@ -188,6 +189,7 @@ class BattleViewModel(
         } else {
             // --- Action Phase: AI decides to use special move or normal attack ---
             val useSpecial = attacker.specialMoveCooldown == 0 && Random.nextInt(100) < 40 // 40% chance
+
             if (useSpecial) {
                 executeSpecialMove(attacker, defender, attackerColor, defenderColor, newLog)
             } else {
@@ -229,6 +231,7 @@ class BattleViewModel(
         val hitChance = (attacker.fighter.speed.toFloat() / (attacker.fighter.speed + defender.fighter.speed)) * 100 + 20
         if (Random.nextInt(100) > hitChance && Random.nextInt(100) > attacker.fighter.luck) {
             newLog.add(BattleLogEntry(message = "${attacker.fighter.name} attacks, but ${defender.fighter.name} dodges!", color = attackerColor, fontStyle = FontStyle.Italic, source = attackerSource))
+            battleSoundPlayer.playMissSound()
             return
         }
 
@@ -307,12 +310,18 @@ class BattleViewModel(
                 }
             }
             "regeneration" -> {
-                battleSoundPlayer.playHealSound()
-                if (attacker.currentHp < attacker.fighter.health) {
-                    attacker.turnsUntilRegenEnds = 3
-                    newLog.add(BattleLogEntry(message = "${attacker.fighter.name} begins to regenerate health!", color = attackerColor, source = attackerSource))
+                if (!attacker.hasRegenerated) {
+                    // Consume the single use of regeneration immediately.
+                    attacker.hasRegenerated = true
+                    battleSoundPlayer.playRegenerationSound()
+                    if (attacker.currentHp < attacker.fighter.health) {
+                        attacker.turnsUntilRegenEnds = 2
+                        newLog.add(BattleLogEntry(message = "${attacker.fighter.name} begins to regenerate health!", color = attackerColor, source = attackerSource))
+                    } else {
+                        newLog.add(BattleLogEntry(message = "${attacker.fighter.name} uses Regeneration, but is already at full health!", color = attackerColor, source = attackerSource))
+                    }
                 } else {
-                    newLog.add(BattleLogEntry(message = "${attacker.fighter.name} tries to regenerate, but is already at full health!", color = attackerColor, source = attackerSource))
+                    newLog.add(BattleLogEntry(message = "${attacker.fighter.name} tries to use Regeneration again, but fails!", color = attackerColor, fontStyle = FontStyle.Italic, source = attackerSource))
                 }
             }
             "lucky_gambit" -> {

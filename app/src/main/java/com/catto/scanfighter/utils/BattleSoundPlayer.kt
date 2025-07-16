@@ -21,6 +21,8 @@ class BattleSoundPlayer(context: Context) {
     // New SoundPool for playing samples
     private val soundPool: SoundPool
     private var swordSoundId: Int = 0
+    private var missSoundId: Int = 0
+    private var regenerationSoundId: Int = 0
     private var isSoundPoolLoaded = false
 
     init {
@@ -42,12 +44,21 @@ class BattleSoundPlayer(context: Context) {
 
         // Load the sound sample from res/raw
         swordSoundId = soundPool.load(context, R.raw.sword, 1)
+        missSoundId = soundPool.load(context, R.raw.uurgghh, 1)
+        regenerationSoundId = soundPool.load(context, R.raw.regeneration, 1)
     }
 
     private fun playSample(soundId: Int, rate: Float = 1.0f) {
         if (isSoundPoolLoaded) {
             soundPool.play(soundId, 1f, 1f, 1, 0, rate)
         }
+    }
+
+    /**
+     * Plays a sound for a missed attack.
+     */
+    fun playMissSound() {
+        playSample(missSoundId)
     }
 
     /**
@@ -109,12 +120,8 @@ class BattleSoundPlayer(context: Context) {
     /**
      * Plays a gentle sound for healing.
      */
-    fun playHealSound() {
-        coroutineScope.launch {
-            soundPlayer.playNote(700f, 200)
-            delay(150)
-            soundPlayer.playNote(900f, 300)
-        }
+    fun playRegenerationSound() {
+        playSample(regenerationSoundId)
     }
 
     /**
