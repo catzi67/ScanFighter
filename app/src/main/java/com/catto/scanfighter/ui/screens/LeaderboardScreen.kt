@@ -222,12 +222,18 @@ fun FighterCard(
         else -> null
     }
 
+    val backgroundColor = if (isSelected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = backgroundColor,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
         border = border

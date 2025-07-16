@@ -1,6 +1,8 @@
 package com.catto.scanfighter.utils.viewmodels
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -8,8 +10,10 @@ import com.catto.scanfighter.data.Fighter
 import com.catto.scanfighter.data.FighterRepository
 import com.catto.scanfighter.ui.theme.Fighter1Color
 import com.catto.scanfighter.ui.theme.Fighter2Color
-import com.catto.scanfighter.ui.theme.ScanFighterRed
 import com.catto.scanfighter.ui.theme.ScanFighterYellow
+import com.catto.scanfighter.utils.BattleSoundPlayer
+import com.catto.scanfighter.utils.FighterStatsGenerator
+import com.catto.scanfighter.utils.MusicUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,6 +28,15 @@ class BattleViewModel(
     private val fighter2Id: Int
 ) : ViewModel() {
 
+    private val battleSoundPlayer = BattleSoundPlayer()
+
+    data class BattleLogEntry(
+        val message: String,
+        val color: Color,
+        val fontWeight: FontWeight = FontWeight.Normal,
+        val fontStyle: FontStyle? = null
+    )
+
     data class BattleFighter(
         val fighter: Fighter,
         var currentHp: Int,
@@ -34,7 +47,7 @@ class BattleViewModel(
         val isLoading: Boolean = true,
         val fighter1: BattleFighter? = null,
         val fighter2: BattleFighter? = null,
-        val battleLog: List<Pair<String, Color>> = emptyList(),
+        val battleLog: List<BattleLogEntry> = emptyList(),
         val isBattleOver: Boolean = false,
         val winner: Fighter? = null,
         val isFighter1Turn: Boolean = true
@@ -62,7 +75,12 @@ class BattleViewModel(
                         fighter1 = battleFighter1,
                         fighter2 = battleFighter2,
                         isFighter1Turn = isFighter1Turn,
-                        battleLog = listOf("The battle between ${f1.name} and ${f2.name} begins!" to Color.White)
+                        battleLog = listOf(
+                            BattleLogEntry(
+                                "The battle between ${f1.name} and ${f2.name} begins!",
+                                Color.White
+                            )
+                        )
                     )
                 }
             }
@@ -73,12 +91,18 @@ class BattleViewModel(
         viewModelScope.launch {
             while (!_uiState.value.isBattleOver) {
                 nextTurn()
-                delay(1500) // Delay between turns for readability
+                delay(2000) // Delay between turns for readability
             }
-            val winnerName = _uiState.value.winner?.name ?: "No one"
-            val finalMessage = "--- Battle Over! $winnerName is victorious! ---"
-            _uiState.update {
-                it.copy(battleLog = it.battleLog + (finalMessage to ScanFighterYellow))
+            val winner = _uiState.value.winner
+            if (winner != null) {
+                val winnerName = winner.name
+                val finalMessage = "--- Battle Over! $winnerName is victorious! ---"
+                _uiState.update {
+                    it.copy(battleLog = it.battleLog + BattleLogEntry(finalMessage, ScanFighterYellow, FontWeight.Bold))
+                }
+                val colors = FighterStatsGenerator.generateColorSignature(winner.barcode)
+                val musicalSignature = MusicUtils.generateMusicalSignature(colors)
+                battleSoundPlayer.playVictorySignature(musicalSignature)
             }
         }
     }
@@ -101,10 +125,16 @@ class BattleViewModel(
         val attackerColor = if (currentState.isFighter1Turn) Fighter1Color else Fighter2Color
         val defenderColor = if (currentState.isFighter1Turn) Fighter2Color else Fighter1Color
 
-        val newLog = mutableListOf<Pair<String, Color>>()
+        val newLog = mutableListOf<BattleLogEntry>()
 
         if (attacker.isStunned) {
-            newLog.add("${attacker.fighter.name} is stunned and can't move!" to attackerColor)
+            val stunMessages = listOf(
+                "${attacker.fighter.name} is stunned and can't move!",
+                "${attacker.fighter.name} is seeing stars and skips a turn!",
+                "${attacker.fighter.name} is immobilized by the last hit!"
+            )
+            newLog.add(BattleLogEntry(stunMessages.random(), attackerColor, fontWeight = FontWeight.Bold))
+            battleSoundPlayer.playStunSound()
             attacker.isStunned = false
         } else {
             val hitChance = (attacker.fighter.speed.toFloat() / (attacker.fighter.speed + defender.fighter.speed)) * 100 + 20
@@ -115,23 +145,55 @@ class BattleViewModel(
                 val defenseReduction = defender.fighter.defense * 0.5
                 var damage = (baseDamage * damageMultiplier - defenseReduction).toInt().coerceAtLeast(1)
 
-                if (isCritical) newLog.add("CRITICAL HIT! ${attacker.fighter.name} attacks with fury!" to attackerColor)
+                if (isCritical) {
+                    val criticalHitMessages = listOf(
+                        "CRITICAL HIT! ${attacker.fighter.name} attacks with fury!",
+                        "A devastating blow from ${attacker.fighter.name}!",
+                        "Right on the mark! ${attacker.fighter.name} lands a critical strike!"
+                    )
+                    newLog.add(BattleLogEntry(criticalHitMessages.random(), attackerColor, FontWeight.Bold))
+                    battleSoundPlayer.playCriticalHitSound()
+                }
 
                 val blockChance = defender.fighter.defense / 2
                 if (Random.nextInt(100) < blockChance) {
                     damage /= 2
-                    newLog.add("${defender.fighter.name} blocks part of the attack!" to defenderColor)
+                    val blockMessages = listOf(
+                        "${defender.fighter.name} blocks part of the attack!",
+                        "${defender.fighter.name} weathers the storm, taking reduced damage!",
+                        "A solid defense from ${defender.fighter.name}!"
+                    )
+                    newLog.add(BattleLogEntry(blockMessages.random(), defenderColor))
+                    battleSoundPlayer.playBlockSound()
+                } else {
+                    battleSoundPlayer.playHitSound()
                 }
 
                 defender.currentHp = (defender.currentHp - damage).coerceAtLeast(0)
-                newLog.add("${attacker.fighter.name} hits ${defender.fighter.name} for $damage damage." to attackerColor)
+                val attackMessages = listOf(
+                    "${attacker.fighter.name} hits ${defender.fighter.name} for $damage damage.",
+                    "${attacker.fighter.name} strikes true, dealing $damage damage to ${defender.fighter.name}!",
+                    "${defender.fighter.name} reels from a solid hit from ${attacker.fighter.name} for $damage damage!"
+                )
+                newLog.add(BattleLogEntry(attackMessages.random(), attackerColor))
 
                 if (isCritical && Random.nextInt(100) < 25) {
                     defender.isStunned = true
-                    newLog.add("${defender.fighter.name} is stunned by the powerful blow!" to defenderColor)
+                    val stunMessages = listOf(
+                        "${defender.fighter.name} is stunned by the powerful blow!",
+                        "The critical hit leaves ${defender.fighter.name} dazed and confused!",
+                        "${defender.fighter.name} is staggered and seeing double!"
+                    )
+                    newLog.add(BattleLogEntry(stunMessages.random(), defenderColor, fontWeight = FontWeight.Bold))
+                    battleSoundPlayer.playStunSound()
                 }
             } else {
-                newLog.add("${attacker.fighter.name} attacks, but ${defender.fighter.name} dodges!" to attackerColor)
+                val dodgeMessages = listOf(
+                    "${attacker.fighter.name} attacks, but ${defender.fighter.name} dodges!",
+                    "A swing and a miss by ${attacker.fighter.name}!",
+                    "${defender.fighter.name} is too quick for ${attacker.fighter.name}'s attack!"
+                )
+                newLog.add(BattleLogEntry(dodgeMessages.random(), attackerColor, fontStyle = FontStyle.Italic))
             }
         }
 

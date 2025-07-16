@@ -29,6 +29,7 @@ import com.catto.scanfighter.ui.navigation.Screen
 import com.catto.scanfighter.ui.components.GameButton
 import com.catto.scanfighter.ui.theme.Fighter1Color
 import com.catto.scanfighter.ui.theme.Fighter2Color
+import com.catto.scanfighter.ui.theme.Gold
 import com.catto.scanfighter.ui.theme.Purple40
 import com.catto.scanfighter.ui.theme.ScanFighterRed
 import com.catto.scanfighter.utils.FighterStatsGenerator
@@ -93,14 +94,24 @@ fun BattleScreen(
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalAlignment = Alignment.Top
                 ) {
-                    FighterStatus(fighter = battleState.fighter1, titleColor = Fighter1Color)
+                    val fighter1Status = when {
+                        battleState.isBattleOver && battleState.winner?.id == battleState.fighter1?.fighter?.id -> "Victorious"
+                        battleState.isBattleOver && battleState.winner?.id != battleState.fighter1?.fighter?.id -> "Defeated"
+                        else -> null
+                    }
+                    FighterStatus(fighter = battleState.fighter1, titleColor = Fighter1Color, battleOutcome = fighter1Status)
                     Text(
                         text = "VS",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.align(Alignment.CenterVertically)
                     )
-                    FighterStatus(fighter = battleState.fighter2, titleColor = Fighter2Color)
+                    val fighter2Status = when {
+                        battleState.isBattleOver && battleState.winner?.id == battleState.fighter2?.fighter?.id -> "Victorious"
+                        battleState.isBattleOver && battleState.winner?.id != battleState.fighter2?.fighter?.id -> "Defeated"
+                        else -> null
+                    }
+                    FighterStatus(fighter = battleState.fighter2, titleColor = Fighter2Color, battleOutcome = fighter2Status)
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -124,7 +135,7 @@ fun BattleScreen(
 }
 
 @Composable
-fun FighterStatus(fighter: BattleViewModel.BattleFighter?, titleColor: Color) {
+fun FighterStatus(fighter: BattleViewModel.BattleFighter?, titleColor: Color, battleOutcome: String?) {
     val soundPlayer = remember { SoundPlayer() }
 
     fighter?.let { battleFighter ->
@@ -177,7 +188,14 @@ fun FighterStatus(fighter: BattleViewModel.BattleFighter?, titleColor: Color) {
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (battleFighter.isStunned) {
+            if (battleOutcome != null) {
+                Text(
+                    text = battleOutcome,
+                    color = if (battleOutcome == "Victorious") Gold else ScanFighterRed,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+            } else if (battleFighter.isStunned) {
                 Text(text = "STUNNED", color = ScanFighterRed, fontWeight = FontWeight.Bold)
             } else {
                 Text(text = "", fontWeight = FontWeight.Bold)
@@ -227,7 +245,7 @@ fun HealthBar(currentHp: Int, maxHp: Int) {
 }
 
 @Composable
-fun BattleLog(log: List<Pair<String, Color>>, modifier: Modifier = Modifier) {
+fun BattleLog(log: List<BattleViewModel.BattleLogEntry>, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     LaunchedEffect(log.size) {
         if (log.isNotEmpty()) {
@@ -243,12 +261,14 @@ fun BattleLog(log: List<Pair<String, Color>>, modifier: Modifier = Modifier) {
             .padding(8.dp)
     ) {
         LazyColumn(state = listState) {
-            items(log) { (message, color) ->
+            items(log) { entry ->
                 Text(
-                    text = message,
+                    text = entry.message,
                     modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp),
                     fontSize = 14.sp,
-                    color = color
+                    color = entry.color,
+                    fontWeight = entry.fontWeight,
+                    fontStyle = entry.fontStyle
                 )
             }
         }
