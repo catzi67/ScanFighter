@@ -27,8 +27,10 @@ import com.catto.scanfighter.data.FighterRepository
 import com.catto.scanfighter.ui.components.ColorSignature
 import com.catto.scanfighter.ui.navigation.Screen
 import com.catto.scanfighter.ui.components.GameButton
-import com.catto.scanfighter.ui.theme.Gold
+import com.catto.scanfighter.ui.theme.Fighter1Color
+import com.catto.scanfighter.ui.theme.Fighter2Color
 import com.catto.scanfighter.ui.theme.Purple40
+import com.catto.scanfighter.ui.theme.ScanFighterRed
 import com.catto.scanfighter.utils.FighterStatsGenerator
 import com.catto.scanfighter.utils.MusicUtils
 import com.catto.scanfighter.utils.SoundPlayer
@@ -91,17 +93,14 @@ fun BattleScreen(
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalAlignment = Alignment.Top
                 ) {
-                    val isFighter1Winner = battleState.isBattleOver && battleState.winner?.id == battleState.fighter1?.fighter?.id
-                    val isFighter2Winner = battleState.isBattleOver && battleState.winner?.id == battleState.fighter2?.fighter?.id
-
-                    FighterStatus(fighter = battleState.fighter1, isWinner = isFighter1Winner)
+                    FighterStatus(fighter = battleState.fighter1, titleColor = Fighter1Color)
                     Text(
                         text = "VS",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.align(Alignment.CenterVertically)
                     )
-                    FighterStatus(fighter = battleState.fighter2, isWinner = isFighter2Winner)
+                    FighterStatus(fighter = battleState.fighter2, titleColor = Fighter2Color)
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -125,15 +124,15 @@ fun BattleScreen(
 }
 
 @Composable
-fun FighterStatus(fighter: BattleViewModel.BattleFighter?, isWinner: Boolean) {
+fun FighterStatus(fighter: BattleViewModel.BattleFighter?, titleColor: Color) {
     val soundPlayer = remember { SoundPlayer() }
 
-    fighter?.let {
-        val colors = remember(it.fighter.barcode) {
-            FighterStatsGenerator.generateColorSignature(it.fighter.barcode)
+    fighter?.let { battleFighter ->
+        val colors = remember(battleFighter.fighter.barcode) {
+            FighterStatsGenerator.generateColorSignature(battleFighter.fighter.barcode)
         }
-        val musicalSignature = remember(it.fighter.barcode) {
-            MusicUtils.generateMusicalSignature(it.fighter.barcode)
+        val musicalSignature = remember(colors) {
+            MusicUtils.generateMusicalSignature(colors)
         }
 
         Column(
@@ -147,7 +146,7 @@ fun FighterStatus(fighter: BattleViewModel.BattleFighter?, isWinner: Boolean) {
                 )
                 .border(
                     width = 2.dp,
-                    color = it.color,
+                    color = MaterialTheme.colorScheme.primary,
                     shape = MaterialTheme.shapes.medium
                 )
                 .padding(8.dp)
@@ -157,60 +156,32 @@ fun FighterStatus(fighter: BattleViewModel.BattleFighter?, isWinner: Boolean) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = it.fighter.name,
+                    text = battleFighter.fighter.name,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     textAlign = TextAlign.Center,
                     lineHeight = 20.sp,
-                    color = it.color
+                    color = titleColor
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
-            Text(text = "HP: ${it.currentHp}/${it.fighter.health}", fontSize = 14.sp)
-            HealthBar(currentHp = it.currentHp, maxHp = it.fighter.health)
+            Text(text = "HP: ${battleFighter.currentHp}/${battleFighter.fighter.health}", fontSize = 14.sp)
+            HealthBar(currentHp = battleFighter.currentHp, maxHp = battleFighter.fighter.health)
             Spacer(modifier = Modifier.height(8.dp))
             Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
-                Text(text = "ATK: ${it.fighter.attack + it.attackModifier}", fontSize = 12.sp)
-                Text(text = "DEF: ${it.fighter.defense + it.defenseModifier}", fontSize = 12.sp)
-                Text(text = "SPD: ${it.fighter.speed}", fontSize = 12.sp)
-                Text(text = "SKL: ${it.fighter.skill}", fontSize = 12.sp)
-                Text(text = "LUK: ${it.fighter.luck}", fontSize = 12.sp)
+                Text(text = "ATK: ${battleFighter.fighter.attack}", fontSize = 12.sp)
+                Text(text = "DEF: ${battleFighter.fighter.defense}", fontSize = 12.sp)
+                Text(text = "SPD: ${battleFighter.fighter.speed}", fontSize = 12.sp)
+                Text(text = "SKL: ${battleFighter.fighter.skill}", fontSize = 12.sp)
+                Text(text = "LUK: ${battleFighter.fighter.luck}", fontSize = 12.sp)
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Status effects display
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.height(80.dp)
-            ) {
-                if (it.currentHp <= 0) {
-                    Text(text = "DEFEATED", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                } else if (isWinner) {
-                    Text(text = "VICTORIOUS!", color = Gold, fontWeight = FontWeight.Bold, fontSize = 20.sp)
-                }
-                else {
-                    if (it.stunnedForRounds > 0) {
-                        Text(text = "STUNNED (${it.stunnedForRounds})", color = Color.Red, fontWeight = FontWeight.Bold)
-                    }
-                    if (it.isEnraged) {
-                        Text(text = "ENRAGED!", color = Color.Red, fontWeight = FontWeight.Bold)
-                    }
-                    if (it.isFocused) {
-                        Text(text = "FOCUSED!", color = Color.Cyan, fontWeight = FontWeight.Bold)
-                    }
-                    if (it.bleedRounds > 0) {
-                        Text(text = "BLEEDING (${it.bleedRounds})", color = Color(0xFF880808), fontWeight = FontWeight.Bold)
-                    }
-                    if (it.attackModifier < 0) {
-                        Text(text = "ATK DOWN", color = Color.Yellow, fontWeight = FontWeight.Bold)
-                    }
-                    if (it.defenseModifier < 0) {
-                        Text(text = "DEF DOWN", color = Color.Yellow, fontWeight = FontWeight.Bold)
-                    }
-                }
+            if (battleFighter.isStunned) {
+                Text(text = "STUNNED", color = ScanFighterRed, fontWeight = FontWeight.Bold)
+            } else {
+                Text(text = "", fontWeight = FontWeight.Bold)
             }
-
 
             Spacer(Modifier.weight(1f))
 
@@ -235,7 +206,7 @@ fun HealthBar(currentHp: Int, maxHp: Int) {
     val barColor = when {
         progress > 0.5f -> Color.Green
         progress > 0.2f -> Color.Yellow
-        else -> Color.Red
+        else -> ScanFighterRed
     }
 
     Box(
