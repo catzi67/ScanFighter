@@ -51,7 +51,7 @@ fun MainMenuScreen(
             GameButton(
                 text = "Local Battle",
                 onClick = {
-                    navController.navigate(Screen.FighterSelection.route)
+                    navController.navigate(Screen.Leaderboard.route)
                 }
             )
             Spacer(modifier = Modifier.height(16.dp))

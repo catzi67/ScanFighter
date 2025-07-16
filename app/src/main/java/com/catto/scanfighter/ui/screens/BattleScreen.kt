@@ -27,7 +27,7 @@ import com.catto.scanfighter.data.FighterRepository
 import com.catto.scanfighter.ui.components.ColorSignature
 import com.catto.scanfighter.ui.navigation.Screen
 import com.catto.scanfighter.ui.components.GameButton
-import com.catto.scanfighter.ui.components.GameDialog
+import com.catto.scanfighter.ui.theme.Gold
 import com.catto.scanfighter.ui.theme.Purple40
 import com.catto.scanfighter.utils.FighterStatsGenerator
 import com.catto.scanfighter.utils.MusicUtils
@@ -91,14 +91,17 @@ fun BattleScreen(
                     horizontalArrangement = Arrangement.SpaceAround,
                     verticalAlignment = Alignment.Top
                 ) {
-                    FighterStatus(fighter = battleState.fighter1)
+                    val isFighter1Winner = battleState.isBattleOver && battleState.winner?.id == battleState.fighter1?.fighter?.id
+                    val isFighter2Winner = battleState.isBattleOver && battleState.winner?.id == battleState.fighter2?.fighter?.id
+
+                    FighterStatus(fighter = battleState.fighter1, isWinner = isFighter1Winner)
                     Text(
                         text = "VS",
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.align(Alignment.CenterVertically)
                     )
-                    FighterStatus(fighter = battleState.fighter2)
+                    FighterStatus(fighter = battleState.fighter2, isWinner = isFighter2Winner)
                 }
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -122,7 +125,7 @@ fun BattleScreen(
 }
 
 @Composable
-fun FighterStatus(fighter: BattleViewModel.BattleFighter?) {
+fun FighterStatus(fighter: BattleViewModel.BattleFighter?, isWinner: Boolean) {
     val soundPlayer = remember { SoundPlayer() }
 
     fighter?.let {
@@ -144,7 +147,7 @@ fun FighterStatus(fighter: BattleViewModel.BattleFighter?) {
                 )
                 .border(
                     width = 2.dp,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = it.color,
                     shape = MaterialTheme.shapes.medium
                 )
                 .padding(8.dp)
@@ -158,7 +161,8 @@ fun FighterStatus(fighter: BattleViewModel.BattleFighter?) {
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     textAlign = TextAlign.Center,
-                    lineHeight = 20.sp
+                    lineHeight = 20.sp,
+                    color = it.color
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
@@ -166,19 +170,47 @@ fun FighterStatus(fighter: BattleViewModel.BattleFighter?) {
             HealthBar(currentHp = it.currentHp, maxHp = it.fighter.health)
             Spacer(modifier = Modifier.height(8.dp))
             Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {
-                Text(text = "ATK: ${it.fighter.attack}", fontSize = 12.sp)
-                Text(text = "DEF: ${it.fighter.defense}", fontSize = 12.sp)
+                Text(text = "ATK: ${it.fighter.attack + it.attackModifier}", fontSize = 12.sp)
+                Text(text = "DEF: ${it.fighter.defense + it.defenseModifier}", fontSize = 12.sp)
                 Text(text = "SPD: ${it.fighter.speed}", fontSize = 12.sp)
                 Text(text = "SKL: ${it.fighter.skill}", fontSize = 12.sp)
                 Text(text = "LUK: ${it.fighter.luck}", fontSize = 12.sp)
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            if (it.isStunned) {
-                Text(text = "STUNNED", color = Color.Red, fontWeight = FontWeight.Bold)
-            } else {
-                Text(text = "", fontWeight = FontWeight.Bold)
+            // Status effects display
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.height(80.dp)
+            ) {
+                if (it.currentHp <= 0) {
+                    Text(text = "DEFEATED", color = Color.Gray, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                } else if (isWinner) {
+                    Text(text = "VICTORIOUS!", color = Gold, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                }
+                else {
+                    if (it.stunnedForRounds > 0) {
+                        Text(text = "STUNNED (${it.stunnedForRounds})", color = Color.Red, fontWeight = FontWeight.Bold)
+                    }
+                    if (it.isEnraged) {
+                        Text(text = "ENRAGED!", color = Color.Red, fontWeight = FontWeight.Bold)
+                    }
+                    if (it.isFocused) {
+                        Text(text = "FOCUSED!", color = Color.Cyan, fontWeight = FontWeight.Bold)
+                    }
+                    if (it.bleedRounds > 0) {
+                        Text(text = "BLEEDING (${it.bleedRounds})", color = Color(0xFF880808), fontWeight = FontWeight.Bold)
+                    }
+                    if (it.attackModifier < 0) {
+                        Text(text = "ATK DOWN", color = Color.Yellow, fontWeight = FontWeight.Bold)
+                    }
+                    if (it.defenseModifier < 0) {
+                        Text(text = "DEF DOWN", color = Color.Yellow, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
+
 
             Spacer(Modifier.weight(1f))
 
@@ -224,7 +256,7 @@ fun HealthBar(currentHp: Int, maxHp: Int) {
 }
 
 @Composable
-fun BattleLog(log: List<String>, modifier: Modifier = Modifier) {
+fun BattleLog(log: List<Pair<String, Color>>, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     LaunchedEffect(log.size) {
         if (log.isNotEmpty()) {
@@ -240,12 +272,12 @@ fun BattleLog(log: List<String>, modifier: Modifier = Modifier) {
             .padding(8.dp)
     ) {
         LazyColumn(state = listState) {
-            items(log) { message ->
+            items(log) { (message, color) ->
                 Text(
                     text = message,
                     modifier = Modifier.padding(vertical = 4.dp, horizontal = 8.dp),
                     fontSize = 14.sp,
-                    color = Color.White
+                    color = color
                 )
             }
         }

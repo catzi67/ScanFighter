@@ -1,7 +1,5 @@
-// app/src/main/java/com/catto/scanfighter/navigation/ScanFighterNavigation.kt
 package com.catto.scanfighter.ui.navigation
 
-import android.app.Application
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -11,7 +9,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.catto.scanfighter.ScanFighterApplication
-import com.catto.scanfighter.ui.screens.*
+import com.catto.scanfighter.ui.screens.BattleScreen
+import com.catto.scanfighter.ui.screens.CreateFighterScreen
+import com.catto.scanfighter.ui.screens.LeaderboardScreen
+import com.catto.scanfighter.ui.screens.MainMenuScreen
+import com.catto.scanfighter.ui.screens.SplashScreen
 import com.catto.scanfighter.utils.viewmodels.FighterViewModel
 
 sealed class Screen(val route: String) {
@@ -19,7 +21,6 @@ sealed class Screen(val route: String) {
     object MainMenu : Screen("main_menu")
     object CreateFighter : Screen("create_fighter")
     object Leaderboard : Screen("leaderboard")
-    object FighterSelection : Screen("fighter_selection")
     object Battle : Screen("battle/{fighter1Id}/{fighter2Id}") {
         fun createRoute(fighter1Id: Int, fighter2Id: Int) = "battle/$fighter1Id/$fighter2Id"
     }
@@ -45,16 +46,10 @@ fun ScanFighterNavigation() {
             MainMenuScreen(navController = navController)
         }
         composable(Screen.CreateFighter.route) {
-            // Pass the viewModel correctly
             CreateFighterScreen(navController = navController, viewModel = fighterViewModel)
         }
         composable(Screen.Leaderboard.route) {
-            // Pass the viewModel correctly
             LeaderboardScreen(navController = navController, viewModel = fighterViewModel)
-        }
-        composable(Screen.FighterSelection.route) {
-            // Pass the viewModel correctly
-            FighterSelectionScreen(navController = navController, fighterViewModel = fighterViewModel)
         }
         composable(
             route = Screen.Battle.route,
@@ -66,10 +61,9 @@ fun ScanFighterNavigation() {
             val fighter1Id = backStackEntry.arguments?.getInt("fighter1Id") ?: -1
             val fighter2Id = backStackEntry.arguments?.getInt("fighter2Id") ?: -1
 
-            // Pass the repository to the BattleScreen
             BattleScreen(
                 navController = navController,
-                repository = application.repository, // Pass repository here
+                repository = application.repository,
                 fighter1Id = fighter1Id,
                 fighter2Id = fighter2Id
             )

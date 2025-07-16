@@ -1,7 +1,8 @@
 package com.catto.scanfighter.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,8 +39,10 @@ import com.catto.scanfighter.ui.components.ColorSignature
 import com.catto.scanfighter.ui.components.GameButton
 import com.catto.scanfighter.ui.components.GameDialog
 import com.catto.scanfighter.ui.components.GameTextField
+import com.catto.scanfighter.ui.navigation.Screen
 import com.catto.scanfighter.ui.theme.Bronze
 import com.catto.scanfighter.ui.theme.Gold
+import com.catto.scanfighter.ui.theme.Purple40
 import com.catto.scanfighter.ui.theme.Silver
 import com.catto.scanfighter.utils.FighterStatsGenerator
 import com.catto.scanfighter.utils.MusicUtils
@@ -48,12 +52,25 @@ import com.catto.scanfighter.utils.viewmodels.FighterViewModel
 @Composable
 fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel) {
     val fighters by viewModel.allFighters.collectAsState(initial = emptyList())
-    var selectedFighter by remember { mutableStateOf<Fighter?>(null) }
+    var selectedFighters by remember { mutableStateOf<List<Fighter>>(emptyList()) }
+    val soundPlayer = remember { SoundPlayer() }
+
+    // State for the management dialogs
+    var fighterToManage by remember { mutableStateOf<Fighter?>(null) }
     var showOptionsDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
-    val soundPlayer = remember { SoundPlayer() }
+
+    fun selectFighterForBattle(fighter: Fighter) {
+        if (selectedFighters.any { it.id == fighter.id }) {
+            selectedFighters = selectedFighters.filter { it.id != fighter.id }
+        } else {
+            if (selectedFighters.size < 2) {
+                selectedFighters = selectedFighters + fighter
+            }
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -63,16 +80,22 @@ fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel)
             modifier = Modifier
                 .fillMaxSize()
                 .systemBarsPadding()
-                .padding(16.dp)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "Leaderboard",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "Select two fighters to battle",
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                 modifier = Modifier.padding(bottom = 16.dp)
             )
-            LazyColumn {
+            LazyColumn(modifier = Modifier.weight(1f)) {
                 itemsIndexed(items = fighters) { index, fighter ->
                     val medalColor = when (index) {
                         0 -> Gold
@@ -80,11 +103,14 @@ fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel)
                         2 -> Bronze
                         else -> null
                     }
+                    val isSelected = selectedFighters.any { it.id == fighter.id }
                     FighterCard(
                         fighter = fighter,
                         medalColor = medalColor,
-                        onClick = {
-                            selectedFighter = fighter
+                        isSelected = isSelected,
+                        onClick = { selectFighterForBattle(fighter) },
+                        onLongClick = {
+                            fighterToManage = fighter
                             showOptionsDialog = true
                         },
                         onNotePlayed = { frequency ->
@@ -93,18 +119,35 @@ fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel)
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            GameButton(
+                text = "Start Battle",
+                onClick = {
+                    if (selectedFighters.size == 2) {
+                        navController.navigate(
+                            Screen.Battle.createRoute(
+                                selectedFighters[0].id,
+                                selectedFighters[1].id
+                            )
+                        )
+                    }
+                },
+                enabled = selectedFighters.size == 2
+            )
         }
     }
 
     // Fighter Management Options Dialog
-    if (showOptionsDialog && selectedFighter != null) {
+    if (showOptionsDialog && fighterToManage != null) {
         GameDialog(
-            title = "Manage ${selectedFighter!!.name}",
+            title = "Manage ${fighterToManage!!.name}",
             onDismissRequest = { showOptionsDialog = false },
             content = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     GameButton(text = "Rename", onClick = {
-                        newName = selectedFighter!!.name
+                        newName = fighterToManage!!.name
                         showRenameDialog = true
                         showOptionsDialog = false
                     })
@@ -119,7 +162,7 @@ fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel)
     }
 
     // Rename Dialog
-    if (showRenameDialog && selectedFighter != null) {
+    if (showRenameDialog && fighterToManage != null) {
         GameDialog(
             title = "Rename Fighter",
             onDismissRequest = { showRenameDialog = false },
@@ -133,7 +176,7 @@ fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel)
             confirmButton = {
                 GameButton(text = "Save", onClick = {
                     if (newName.isNotBlank()) {
-                        viewModel.updateFighter(selectedFighter!!.copy(name = newName))
+                        viewModel.updateFighter(fighterToManage!!.copy(name = newName))
                         showRenameDialog = false
                     }
                 })
@@ -142,9 +185,9 @@ fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel)
     }
 
     // Delete Confirmation Dialog
-    if (showDeleteConfirmDialog && selectedFighter != null) {
+    if (showDeleteConfirmDialog && fighterToManage != null) {
         GameDialog(
-            title = "Delete ${selectedFighter!!.name}?",
+            title = "Delete ${fighterToManage!!.name}?",
             onDismissRequest = { showDeleteConfirmDialog = false },
             content = { Text("This action cannot be undone.") },
             confirmButton = {
@@ -152,7 +195,7 @@ fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel)
                     GameButton(text = "Cancel", onClick = { showDeleteConfirmDialog = false })
                     Spacer(modifier = Modifier.width(16.dp))
                     GameButton(text = "Delete", onClick = {
-                        viewModel.deleteFighter(selectedFighter!!)
+                        viewModel.deleteFighter(fighterToManage!!)
                         showDeleteConfirmDialog = false
                     })
                 }
@@ -161,8 +204,16 @@ fun LeaderboardScreen(navController: NavController, viewModel: FighterViewModel)
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FighterCard(fighter: Fighter, medalColor: Color?, onClick: () -> Unit, onNotePlayed: (Float) -> Unit) {
+fun FighterCard(
+    fighter: Fighter,
+    medalColor: Color?,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onNotePlayed: (Float) -> Unit
+) {
     val colors = remember(fighter.barcode) {
         FighterStatsGenerator.generateColorSignature(fighter.barcode)
     }
@@ -173,55 +224,63 @@ fun FighterCard(fighter: Fighter, medalColor: Color?, onClick: () -> Unit, onNot
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = if (isSelected) Purple40.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        border = medalColor?.let { BorderStroke(4.dp, it) }
+        border = BorderStroke(
+            width = if (isSelected) 3.dp else 1.dp,
+            color = medalColor ?: if (isSelected) Purple40 else Color.Gray.copy(alpha = 0.5f)
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Column(modifier = Modifier.clickable(onClick = onClick)) {
-                Text(
-                    text = fighter.name,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+        // The main content area is clickable and long-clickable
+        Column(
+            modifier = Modifier
+                .clip(CardDefaults.shape)
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
                 )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "HP: ${fighter.health}")
-                    Text(text = "ATK: ${fighter.attack}")
-                    Text(text = "DEF: ${fighter.defense}")
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "SPD: ${fighter.speed}")
-                    Text(text = "SKL: ${fighter.skill}")
-                    Text(text = "LUK: ${fighter.luck}")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row {
-                    Text(text = "Wins: ${fighter.wins}", fontWeight = FontWeight.Bold, color = Gold)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(text = "Losses: ${fighter.losses}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            ColorSignature(
-                colors = colors,
-                onColorBarClick = { index ->
-                    onNotePlayed(musicalSignature[index])
-                }
+                .padding(16.dp)
+        ) {
+            Text(
+                text = fighter.name,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "HP: ${fighter.health}")
+                Text(text = "ATK: ${fighter.attack}")
+                Text(text = "DEF: ${fighter.defense}")
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(text = "SPD: ${fighter.speed}")
+                Text(text = "SKL: ${fighter.skill}")
+                Text(text = "LUK: ${fighter.luck}")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row {
+                Text(text = "Wins: ${fighter.wins}", fontWeight = FontWeight.Bold, color = Gold)
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(text = "Losses: ${fighter.losses}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+            }
         }
+        // The ColorSignature is outside the clickable area
+        ColorSignature(
+            colors = colors,
+            onColorBarClick = { index ->
+                onNotePlayed(musicalSignature[index])
+            }
+        )
     }
 }
